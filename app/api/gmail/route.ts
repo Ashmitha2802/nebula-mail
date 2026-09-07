@@ -26,15 +26,15 @@ export async function GET(request: Request) {
       auth: oauth2Client,
     });
 
-    let labelIds: string[] = ["INBOX"];
+    let labelIds = ["INBOX"];
 
-    if (folder === "trash") {
-      labelIds = ["TRASH"];
-    }
-
-    if (folder === "starred") {
-      labelIds = ["STARRED"];
-    }
+if (folder === "starred") {
+  labelIds = ["STARRED"];
+} else if (folder === "trash") {
+  labelIds = ["TRASH"];
+} else if (folder === "sent") {
+  labelIds = ["SENT"];
+}
 
     const listResponse = await gmail.users.messages.list({
       userId: "me",

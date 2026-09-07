@@ -1,3 +1,5 @@
+import { generateWithOllama } from "@/lib/ollama";
+
 export async function POST(request: Request) {
   try {
     const { subject, from, body } =
@@ -56,33 +58,13 @@ Return exactly this JSON format:
 }
 `;
 
-    const response = await fetch(
-      "http://localhost:11434/api/generate",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen2.5:3b",
-          prompt,
-          stream: false,
-          format: "json",
-        }),
-      }
+    const data = await generateWithOllama(
+      "qwen2.5:3b",
+      prompt,
+      { format: "json" }
     );
 
-    if (!response.ok) {
-      throw new Error(
-        "Ollama request failed"
-      );
-    }
-
-    const data = await response.json();
-
-    const result = JSON.parse(
-      data.response
-    );
+    const result = JSON.parse(data.response);
 
     return Response.json({
       priority: result.priority,
@@ -97,8 +79,7 @@ Return exactly this JSON format:
 
     return Response.json(
       {
-        error:
-          "Failed to classify email",
+        error: "Failed to classify email",
       },
       { status: 500 }
     );

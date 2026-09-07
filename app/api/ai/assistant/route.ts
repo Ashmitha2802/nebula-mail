@@ -1,9 +1,15 @@
+import { generateWithOllama } from "@/lib/ollama";
+
 export async function POST(request: Request) {
   try {
-    const { command, emails, currentEmail } = await request.json();
+    const { command, emails, currentEmail } =
+      await request.json();
 
     if (!command) {
-      return Response.json({ error: "Command is required" }, { status: 400 });
+      return Response.json(
+        { error: "Command is required" },
+        { status: 400 }
+      );
     }
 
     const text = command.trim();
@@ -11,41 +17,42 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 1. SEND EMAIL - handle directly
     // --------------------------------------------------
-
     const sendMatch = text.match(
       /send\s+(?:an\s+)?email\s+to\s+([^\s]+@[^\s]+)(?:\s+(.+))?/i
     );
 
     if (sendMatch) {
       const recipient = sendMatch[1];
-
       const remainingText = sendMatch[2] || "";
 
       let subject = "";
       let body = remainingText;
 
-      // Prefer a quoted subject first — e.g. subject "Meeting Tomorrow"
+      // Prefer a quoted subject
       const quotedSubjectMatch = remainingText.match(
         /subject\s*[:\-]?\s*["']([^"']+)["']/i
       );
 
       if (quotedSubjectMatch) {
         subject = quotedSubjectMatch[1].trim();
-        body = remainingText.replace(quotedSubjectMatch[0], "").trim();
+        body = remainingText
+          .replace(quotedSubjectMatch[0], "")
+          .trim();
       } else {
-        // Unquoted subject — capture everything up to "saying"/"say", not just
-        // the first word. Lookahead keeps "saying ..." intact for the next step.
+        // Unquoted subject
         const subjectMatch = remainingText.match(
           /subject\s*[:\-]?\s*(.+?)(?=\s+(?:saying|say)\b|$)/i
         );
 
         if (subjectMatch) {
           subject = subjectMatch[1].trim();
-          body = remainingText.replace(subjectMatch[0], "").trim();
+          body = remainingText
+            .replace(subjectMatch[0], "")
+            .trim();
         }
       }
 
-      // "saying ..." / "say ..." extraction (also handles quoted body text)
+      // Extract saying/say body
       const quotedSayingMatch = body.match(
         /(?:saying|say)\s+["']([^"']+)["']/i
       );
@@ -53,7 +60,10 @@ export async function POST(request: Request) {
       if (quotedSayingMatch) {
         body = quotedSayingMatch[1].trim();
       } else {
-        const sayingMatch = body.match(/(?:saying|say)\s+(.+)/i);
+        const sayingMatch = body.match(
+          /(?:saying|say)\s+(.+)/i
+        );
+
         if (sayingMatch) {
           body = sayingMatch[1].trim();
         }
@@ -72,8 +82,11 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 2. OPEN COMPOSE
     // --------------------------------------------------
-
-    if (/^(compose|write|new email|compose email|write an email)$/i.test(text)) {
+    if (
+      /^(compose|write|new email|compose email|write an email)$/i.test(
+        text
+      )
+    ) {
       return Response.json({
         action: "OPEN_COMPOSE",
         recipient: "",
@@ -87,16 +100,20 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 3. REPLY TO CURRENT EMAIL
     // --------------------------------------------------
-
     if (/^reply\b/i.test(text)) {
       let replyBody = text;
 
       replyBody = replyBody
-        .replace(/^reply\s+to\s+(?:this\s+email|this)\s*/i, "")
+        .replace(
+          /^reply\s+to\s+(?:this\s+email|this)\s*/i,
+          ""
+        )
         .replace(/^reply\s*/i, "")
         .trim();
 
-      replyBody = replyBody.replace(/^(saying|with)\s+/i, "").trim();
+      replyBody = replyBody
+        .replace(/^(saying|with)\s+/i, "")
+        .trim();
 
       return Response.json({
         action: "REPLY_EMAIL",
@@ -109,9 +126,33 @@ export async function POST(request: Request) {
     }
 
     // --------------------------------------------------
+    // 3.5. FORWARD CURRENT EMAIL
+    // --------------------------------------------------
+    if (/^forward\b/i.test(text)) {
+      let forwardBody = text
+        .replace(
+          /^forward\s+(this\s+email|this)?\s*/i,
+          ""
+        )
+        .trim();
+
+      forwardBody = forwardBody
+        .replace(/^(saying|with)\s+/i, "")
+        .trim();
+
+      return Response.json({
+        action: "FORWARD_EMAIL",
+        recipient: "",
+        subject: "",
+        body: forwardBody,
+        filterType: "",
+        filterValue: "",
+      });
+    }
+
+    // --------------------------------------------------
     // 4. UNREAD EMAILS
     // --------------------------------------------------
-
     if (
       /show\s+(me\s+)?unread\s+emails/i.test(text) ||
       /unread\s+emails/i.test(text)
@@ -129,7 +170,6 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 5. STARRED EMAILS
     // --------------------------------------------------
-
     if (
       /show\s+(me\s+)?starred\s+emails/i.test(text) ||
       /starred\s+emails/i.test(text)
@@ -147,7 +187,6 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 6. RECENT EMAILS
     // --------------------------------------------------
-
     const recentMatch = text.match(
       /(?:show\s+(?:me\s+)?)?(?:emails\s+)?from\s+(?:the\s+)?last\s+(\d+)\s+days?/i
     );
@@ -166,7 +205,6 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 7. SUMMARIZE CURRENT EMAIL
     // --------------------------------------------------
-
     if (
       /summari[sz]e\s+(this|the)\s+email/i.test(text) ||
       /summari[sz]e\s+email/i.test(text)
@@ -183,14 +221,7 @@ export async function POST(request: Request) {
 
     // --------------------------------------------------
     // 7.5. SUBJECT / KEYWORD EMAIL SEARCH
-    //
-    // Anchored to the END of the sentence ($) so a lazy match can't stop at
-    // the first stray "email" word inside a longer sentence (e.g. "the email
-    // from Sarah..."). Also skips when "from" is present, since that usually
-    // means a sender-based query — safer to let the Ollama fallback (which
-    // understands sender + subject together) handle those.
     // --------------------------------------------------
-
     const hasSenderClue = /\bfrom\b/i.test(text);
 
     const relatedMatch = !hasSenderClue
@@ -200,9 +231,18 @@ export async function POST(request: Request) {
       : null;
 
     if (relatedMatch) {
-      const keyword = relatedMatch[1].replace(/^(the|a|an)\s+/i, "").trim();
+      const keyword = relatedMatch[1]
+        .replace(/^(the|a|an)\s+/i, "")
+        .trim();
 
-      const ignoredWords = ["unread", "starred", "recent", "last", "all", ""];
+      const ignoredWords = [
+        "unread",
+        "starred",
+        "recent",
+        "last",
+        "all",
+        "",
+      ];
 
       const isIgnored = ignoredWords.some(
         (word) => keyword.toLowerCase() === word
@@ -223,7 +263,6 @@ export async function POST(request: Request) {
     // --------------------------------------------------
     // 8. ASK AI ABOUT CURRENT EMAIL
     // --------------------------------------------------
-
     if (
       /what\s+(does|is|are|was|were)/i.test(text) ||
       /tell\s+me\s+about\s+this\s+email/i.test(text) ||
@@ -241,28 +280,38 @@ export async function POST(request: Request) {
     }
 
     // --------------------------------------------------
-    // 9. FALLBACK TO OLLAMA — everything else (including sender-based
-    //    queries like "find the email from Sarah about project update")
+    // 9. FALLBACK TO OLLAMA
     // --------------------------------------------------
-
     const prompt = `
 You are the central AI assistant for an email application.
 
 Understand the user's command and decide what application action should happen.
 
 User command:
+
 "${text}"
 
 Current email:
-${JSON.stringify(currentEmail || null, null, 2)}
+
+${JSON.stringify(
+  currentEmail || null,
+  null,
+  2
+)}
 
 Available emails:
-${JSON.stringify(emails || [], null, 2)}
+
+${JSON.stringify(
+  emails || [],
+  null,
+  2
+)}
 
 Allowed actions:
 
 SEND_EMAIL
 REPLY_EMAIL
+FORWARD_EMAIL
 FILTER_EMAILS
 SUMMARIZE_EMAIL
 ASK_ABOUT_EMAIL
@@ -270,6 +319,7 @@ OPEN_COMPOSE
 NONE
 
 For FILTER_EMAILS, allowed filterType values:
+
 - unread
 - starred
 - sender
@@ -291,35 +341,32 @@ Format:
 }
 
 Rules:
+
 - Never invent an email address.
 - Never invent email content.
 - Use current email context only when needed.
 `;
 
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "qwen2.5:3b",
-        prompt,
-        stream: false,
-        format: "json",
-      }),
-    });
+    const data = await generateWithOllama(
+      "qwen2.5:3b",
+      prompt,
+      { format: "json" }
+    );
 
-    if (!response.ok) {
-      throw new Error("Ollama request failed");
-    }
-
-    const data = await response.json();
     const result = JSON.parse(data.response);
 
     return Response.json(result);
   } catch (error) {
-    console.error("AI assistant error:", error);
+    console.error(
+      "AI assistant error:",
+      error
+    );
 
     return Response.json(
-      { error: "Failed to process assistant command" },
+      {
+        error:
+          "Failed to process assistant command",
+      },
       { status: 500 }
     );
   }

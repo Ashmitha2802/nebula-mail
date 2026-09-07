@@ -164,8 +164,9 @@ export default function Home() {
     try {
       let folderParam = "inbox";
 
-      if (folder === "Trash") folderParam = "trash";
-      if (folder === "Starred") folderParam = "starred";
+if (folder === "Trash") folderParam = "trash";
+if (folder === "Starred") folderParam = "starred";
+if (folder === "Sent") folderParam = "sent";
 
       const response = await fetch(`/api/gmail?folder=${folderParam}`);
       const data = await response.json();
@@ -743,6 +744,23 @@ export default function Home() {
 
       return "Opening a reply to the current email.";
     }
+    if (action === "FORWARD_EMAIL") {
+  if (!selectedEmail) {
+    return "Please open an email first, then ask me to forward it.";
+  }
+
+  setReplyMode(false);
+  setTo("");
+  setSubject(`Fwd: ${selectedEmail.subject}`);
+  setBody(
+    data.body
+      ? `${data.body}\n\n--- Forwarded message ---\n${selectedEmail.body}`
+      : `\n\n--- Forwarded message ---\n${selectedEmail.body}`
+  );
+  setShowCompose(true);
+
+  return "Opening the forwarded email.";
+}
 
     if (action === "FILTER_EMAILS") {
       const type = data.filterType;
@@ -1012,10 +1030,11 @@ export default function Home() {
 
           <nav className="space-y-1">
             {[
-              { key: "Inbox", icon: paths.inbox, label: "Inbox" },
-              { key: "Starred", icon: paths.star, label: "Starred" },
-              { key: "Trash", icon: paths.trash, label: "Trash" },
-            ].map((item) => (
+  { key: "Inbox", icon: paths.inbox, label: "Inbox" },
+  { key: "Sent", icon: paths.send, label: "Sent" },
+  { key: "Starred", icon: paths.star, label: "Starred" },
+  { key: "Trash", icon: paths.trash, label: "Trash" },
+].map((item) => (
               <button
                 key={item.key}
                 onClick={() => changeFolder(item.key)}

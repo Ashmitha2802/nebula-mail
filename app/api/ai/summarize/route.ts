@@ -25,8 +25,12 @@ ${body}
 Give the summary in 3-5 bullet points.
 `;
 
-    const response = await fetch(
-      "http://localhost:11434/api/generate",
+    const ollamaUrl =
+  process.env.OLLAMA_URL ||
+  "http://localhost:11434";
+
+const response = await fetch(
+  `${ollamaUrl}/api/generate`,
       {
         method: "POST",
         headers: {

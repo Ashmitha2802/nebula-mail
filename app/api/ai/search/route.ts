@@ -1,3 +1,5 @@
+import { generateWithOllama } from "@/lib/ollama";
+
 export async function POST(request: Request) {
   try {
     const { query, emails } = await request.json();
@@ -58,36 +60,21 @@ Rules:
 - Do not invent email IDs.
 `;
 
-    const response = await fetch(
-      "http://localhost:11434/api/generate",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen2.5:3b",
-          prompt,
-          stream: false,
-          format: "json",
-        }),
-      }
+    const data = await generateWithOllama(
+      "qwen2.5:3b",
+      prompt,
+      { format: "json" }
     );
-
-    if (!response.ok) {
-      throw new Error("Ollama request failed");
-    }
-
-    const data = await response.json();
 
     const result = JSON.parse(data.response);
 
-    const validIds = result.matchingIds?.filter(
-      (id: string) =>
-        emailData.some(
-          (email: any) => email.id === id
-        )
-    ) || [];
+    const validIds =
+      result.matchingIds?.filter(
+        (id: string) =>
+          emailData.some(
+            (email: any) => email.id === id
+          )
+      ) || [];
 
     return Response.json({
       matchingIds: validIds,
