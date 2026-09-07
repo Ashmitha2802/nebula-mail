@@ -39,7 +39,7 @@ NebulaMail addresses these problems by introducing an AI assistant that understa
 - Send confirmation before sending
 - Rich email previews inside the assistant
 
-  ##6 Central AI Assistant
+##6 Central AI Assistant
 
 The Central AI Assistant is the core feature of NebulaMail.
 
@@ -59,7 +59,7 @@ Examples:
 
 The assistant converts user intent into structured application actions and updates the UI accordingly.
 
-##7 Architecture
+## Architecture
 
 ```text
                          User
@@ -129,6 +129,7 @@ Natural-Language Command
           |
           v
  Application / Gmail Action
+
 
 
 ### 8. AI Architecture
@@ -489,7 +490,9 @@ Shows the Gmail-style interface with Inbox, Sent, Starred, and Trash navigation.
 Central AI Assistant
 
 Shows the natural-language assistant panel used to control the application.
+
 <img width="442" height="608" alt="image" src="https://github.com/user-attachments/assets/8140904a-6500-42f3-81a6-6d59981f91d5" />
+
 
 
 Assistant Email Filtering
