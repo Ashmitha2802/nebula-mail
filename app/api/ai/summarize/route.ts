@@ -1,3 +1,5 @@
+import { generateWithOllama } from "@/lib/ollama";
+
 export async function POST(request: Request) {
   try {
     const { subject, from, body } = await request.json();
@@ -25,30 +27,10 @@ ${body}
 Give the summary in 3-5 bullet points.
 `;
 
-    const ollamaUrl =
-  process.env.OLLAMA_URL ||
-  "http://localhost:11434";
-
-const response = await fetch(
-  `${ollamaUrl}/api/generate`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen2.5:3b",
-          prompt,
-          stream: false,
-        }),
-      }
+    const data = await generateWithOllama(
+      "qwen2.5:3b",
+      prompt
     );
-
-    if (!response.ok) {
-      throw new Error("Ollama request failed");
-    }
-
-    const data = await response.json();
 
     return Response.json({
       summary: data.response,
